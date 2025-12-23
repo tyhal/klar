@@ -2,7 +2,7 @@
     klar.
 </h1>
 <p align="center">
-    structured json → colorized text
+    structured json → clear output
 </p>
 
 ## Usage

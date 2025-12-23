@@ -9,7 +9,7 @@ import (
 func Command() *cobra.Command {
 	return &cobra.Command{
 		Use:   "klar",
-		Short: "Structured JSON → colorized text",
+		Short: "structured json → clear output",
 		RunE:  stream,
 	}
 }
