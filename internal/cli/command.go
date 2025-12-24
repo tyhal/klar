@@ -15,5 +15,5 @@ func Command() *cobra.Command {
 }
 
 func stream(cmd *cobra.Command, _ []string) error {
-	return klar.Stream(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout())
+	return klar.New(cmd.OutOrStdout()).Decode(cmd.Context(), cmd.InOrStdin())
 }

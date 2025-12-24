@@ -4,10 +4,17 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"github.com/charmbracelet/log"
 	"io"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 )
+
+var timeKeys = []string{"time", "timestamp"}
+var levelKeys = []string{"level", "severity"}
+var msgKeys = []string{"msg", "message"}
+var errKeys = []string{"err", "error"}
 
 // logEntry represents a single log entry
 type logEntry struct {
@@ -24,28 +31,37 @@ func (l *logEntry) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	if t, ok := obj["time"].(string); ok {
-		parsed, err := time.Parse(time.RFC3339, t)
-		if err == nil {
-			l.Time = parsed
+	for _, k := range timeKeys {
+		if t, ok := obj[k].(string); ok {
+			parsed, err := time.Parse(time.RFC3339, t)
+			if err == nil {
+				l.Time = parsed
+				delete(obj, k)
+				break
+			}
 		}
 	}
 
-	if lvl, ok := obj["level"].(string); ok {
-		level, err := log.ParseLevel(lvl)
-		if err == nil {
-			l.Level = level
+	for _, k := range levelKeys {
+		if lvl, ok := obj[k].(string); ok {
+			level, err := log.ParseLevel(lvl)
+			if err == nil {
+				l.Level = level
+				delete(obj, k)
+				break
+			}
 		}
 	}
 
-	if msg, ok := obj["msg"]; ok {
-		l.Msg = msg
+	for _, k := range msgKeys {
+		if msg, ok := obj[k]; ok {
+			l.Msg = msg
+			delete(obj, k)
+		}
 	}
 
 	for k, v := range obj {
-		if k != "time" && k != "level" && k != "msg" {
-			l.Keyvals = append(l.Keyvals, k, v)
-		}
+		l.Keyvals = append(l.Keyvals, k, v)
 	}
 
 	return nil
@@ -55,16 +71,35 @@ func (l *logEntry) time(time.Time) time.Time {
 	return l.Time
 }
 
-// Stream reads structured JSON logs and writes them as human-readable logs
-func Stream(ctx context.Context, r io.Reader, w io.Writer) error {
+// Logger is a wrapper around the charm log package with json log parsing
+type Logger struct {
+	*log.Logger
+}
+
+// New creates a new Logger with some opinionated defaults
+func New(w io.Writer) Logger {
+	l := Logger{
+		log.New(w),
+	}
+	l.SetReportTimestamp(true)
+	l.SetTimeFormat(time.RFC3339)
+	styles := log.DefaultStyles()
+	for _, k := range errKeys {
+		styles.Keys[k] = lipgloss.NewStyle().Foreground(lipgloss.Color("204"))
+		styles.Values[k] = lipgloss.NewStyle().Bold(true)
+	}
+	l.SetStyles(styles)
+	return l
+}
+
+// Decode reads structured JSON logs and writes them as human-readable logs
+func (l Logger) Decode(ctx context.Context, r io.Reader) error {
 	dec := jsontext.NewDecoder(r)
-	enc := log.New(w)
-	enc.SetReportTimestamp(true)
-	enc.SetTimeFormat(time.RFC3339)
 
 	for {
 		select {
 		case <-ctx.Done():
+			return ctx.Err()
 		default:
 			var entry logEntry
 
@@ -76,8 +111,8 @@ func Stream(ctx context.Context, r io.Reader, w io.Writer) error {
 				return err
 			}
 
-			enc.SetTimeFunction(entry.time)
-			enc.Log(entry.Level, entry.Msg, entry.Keyvals...)
+			l.SetTimeFunction(entry.time)
+			l.Log(entry.Level, entry.Msg, entry.Keyvals...)
 		}
 	}
 }

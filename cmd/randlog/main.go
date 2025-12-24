@@ -27,5 +27,5 @@ func main() {
 }
 
 func randomLog() {
-	charm.Log(charmLevels[rand.Intn(len(charmLevels))], "Hello World!", "a", rand.Intn(100), "b", rand.Intn(100))
+	charm.Log(charmLevels[rand.Intn(len(charmLevels))], "Hello World!", "a", rand.Intn(100), "err", rand.Intn(100))
 }
