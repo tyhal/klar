@@ -57,6 +57,7 @@ func (l *logEntry) UnmarshalJSON(data []byte) error {
 		if msg, ok := obj[k]; ok {
 			l.Msg = msg
 			delete(obj, k)
+			break
 		}
 	}
 
