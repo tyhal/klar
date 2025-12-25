@@ -29,7 +29,7 @@ jobs:
           files: ./coverage.out
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Run crie all
-        uses: tyhal/crie-action@dc2ddc3294821a43818a025525aebc08c8fc1179 # main
+        uses: tyhal/crie-action@43834890ac97736b2911277b11158952cdc3edb7 # main
         with:
           command: lnt
           lint_continue: 'true'
