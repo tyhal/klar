@@ -1,0 +1,38 @@
+name: klar
+permissions:
+  contents: read
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  pull_request:
+jobs:
+  klar-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Fetch base ref for PR
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version-file: 'go.mod'
+      - name: Run tests
+        run: go test -coverprofile=coverage.out ./...
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        with:
+          files: ./coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Run crie all
+        uses: tyhal/crie-action@dc2ddc3294821a43818a025525aebc08c8fc1179 # main
+        with:
+          command: lnt
+          lint_continue: 'true'
+          lint_passes: 'true'
+          lint_git_diff: ${{ github.event_name == 'pull_request'  && 'true' || 'false' }}
+          lint_git_target: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref || github.ref_name) || '' }}
+      - name: Ensure no diff
+        run: git diff --exit-code

@@ -16,3 +16,7 @@
 ```shell
     GOEXPERIMENT=jsonv2 go install github.com/tyhal/klar/cmd/klar@latest
 ```
+
+```shell
+    brew install tyhal/tap/klar
+```
