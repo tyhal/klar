@@ -9,12 +9,11 @@ import (
 	"github.com/tyhal/klar/internal/cli"
 )
 
-var version = "latest"
+var version = ""
 
 func main() {
 	cmd := cli.Command()
-	cmd.Version = version
-	if err := fang.Execute(context.Background(), cmd); err != nil {
+	if err := fang.Execute(context.Background(), cmd, fang.WithVersion(version)); err != nil {
 		os.Exit(1)
 	}
 }
