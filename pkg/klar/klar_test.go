@@ -2,7 +2,6 @@ package klar
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -52,13 +51,18 @@ func TestLogger_Decode(t *testing.T) {
 			Out: `2011-05-15T12:00:00+02:00 INFO Redistribution scheduled
 `,
 		},
+		{
+			Name: "Failed to marshal log entry",
+			In:   "plain text",
+			Out:  "",
+		},
 	}
 
 	for _, tc := range testcase {
 		t.Run(tc.Name, func(t *testing.T) {
 			var buf bytes.Buffer
 			l := New(&buf)
-			err := l.Decode(context.Background(), strings.NewReader(tc.In))
+			err := l.Decode(t.Context(), strings.NewReader(tc.In))
 			assert.NoError(t, err)
 			assert.Equal(t, tc.Out, buf.String())
 		})

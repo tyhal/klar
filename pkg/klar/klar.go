@@ -109,7 +109,8 @@ func (l Logger) Decode(ctx context.Context, r io.Reader) error {
 				return nil
 			}
 			if err != nil {
-				return err
+				entry.Msg = "failed to parse log"
+				entry.Keyvals = append(entry.Keyvals, errKeys[0], err)
 			}
 
 			l.SetTimeFunction(entry.time)
