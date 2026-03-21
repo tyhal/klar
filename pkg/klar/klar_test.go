@@ -54,7 +54,7 @@ func TestLogger_Decode(t *testing.T) {
 		{
 			Name: "Failed to marshal log entry",
 			In:   "plain text",
-			Out:  "",
+			Out:  "WARN plain text err=\"jsontext: invalid character 'p' at start of value\"\n",
 		},
 	}
 

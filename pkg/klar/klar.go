@@ -1,8 +1,8 @@
 package klar
 
 import (
+	"bufio"
 	"context"
-	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"io"
 	"time"
@@ -95,26 +95,33 @@ func New(w io.Writer) Logger {
 
 // Decode reads structured JSON logs and writes them as human-readable logs
 func (l Logger) Decode(ctx context.Context, r io.Reader) error {
-	dec := jsontext.NewDecoder(r)
-
-	for {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			var entry logEntry
-
-			err := json.UnmarshalDecode(dec, &entry)
-			if err == io.EOF {
-				return nil
+			line := scanner.Bytes()
+			// Skip empty lines
+			if len(line) == 0 {
+				continue
 			}
+
+			// Try to decode as JSON
+			var entry logEntry
+			err := json.Unmarshal(line, &entry)
 			if err != nil {
-				entry.Msg = "failed to parse log"
-				entry.Keyvals = append(entry.Keyvals, errKeys[0], err)
+				// Failed to decode - print raw line
+				entry = logEntry{
+					Level:   log.WarnLevel,
+					Msg:     string(line),
+					Keyvals: []any{errKeys[0], err.Error()},
+				}
 			}
 
 			l.SetTimeFunction(entry.time)
 			l.Log(entry.Level, entry.Msg, entry.Keyvals...)
 		}
 	}
+	return scanner.Err()
 }
