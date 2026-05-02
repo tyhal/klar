@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-var timeKeys = []string{"time", "timestamp"}
+var timeKeys = []string{"time", "timestamp", "eventTime"}
 var levelKeys = []string{"level", "severity"}
 var msgKeys = []string{"msg", "message"}
 var errKeys = []string{"err", "error"}
