@@ -3,7 +3,7 @@ package klar
 import (
 	"bufio"
 	"context"
-	"encoding/json/v2"
+	"encoding/json"
 	"io"
 	"time"
 
@@ -78,10 +78,11 @@ type Logger struct {
 }
 
 // New creates a new Logger with some opinionated defaults
-func New(w io.Writer) Logger {
+func New(w io.Writer, level log.Level) Logger {
 	l := Logger{
 		log.New(w),
 	}
+	l.SetLevel(level)
 	l.SetReportTimestamp(true)
 	l.SetTimeFormat(time.RFC3339)
 	styles := log.DefaultStyles()

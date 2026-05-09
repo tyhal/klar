@@ -21,7 +21,7 @@ func main() {
 	charm.SetOutput(os.Stdout)
 	charm.SetTimeFormat(time.RFC3339)
 	charm.SetReportTimestamp(true)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		randomLog()
 	}
 }

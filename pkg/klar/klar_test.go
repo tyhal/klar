@@ -61,7 +61,7 @@ func TestLogger_Decode(t *testing.T) {
 	for _, tc := range testcase {
 		t.Run(tc.Name, func(t *testing.T) {
 			var buf bytes.Buffer
-			l := New(&buf)
+			l := New(&buf, log.DebugLevel)
 			err := l.Decode(t.Context(), strings.NewReader(tc.In))
 			assert.NoError(t, err)
 			assert.Equal(t, tc.Out, buf.String())
