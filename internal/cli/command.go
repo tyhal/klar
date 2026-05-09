@@ -10,7 +10,7 @@ import (
 func Command() *cobra.Command {
 	return &cobra.Command{
 		Use: "klar <level>",
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		ValidArgsFunction: func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 			levels := []log.Level{log.DebugLevel, log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.FatalLevel}
 			completions := make([]string, len(levels))
 			for i, level := range levels {
