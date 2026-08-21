@@ -3,7 +3,7 @@ module github.com/tyhal/klar
 go 1.25.4
 
 require (
-	github.com/charmbracelet/fang v0.4.4
+	github.com/charmbracelet/fang/v2 v2.0.1
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v0.4.2
 	github.com/spf13/cobra v1.10.2
