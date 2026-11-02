@@ -1,0 +1,4 @@
+randlog | head -3
+randlog | klar
+randlog | klar -l warn
+randlog | klar -l error -t absolute
