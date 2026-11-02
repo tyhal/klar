@@ -1,31 +1,90 @@
+// Package main emits a short, randomised but realistic stream of JSON logs,
+// sized to fit a small terminal when piped through klar for a demo.
 package main
 
 import (
-	"math/rand"
+	"fmt"
+	"math/rand/v2"
 	"os"
 	"time"
 
-	charm "github.com/charmbracelet/log"
+	charm "charm.land/log/v2"
 )
 
-var charmLevels = []charm.Level{
-	charm.DebugLevel,
-	charm.InfoLevel,
-	charm.WarnLevel,
-	charm.ErrorLevel,
-	charm.FatalLevel,
+// step is one line of the demo story. gap is the time since the previous line.
+type step struct {
+	gap     time.Duration
+	level   charm.Level
+	msg     string
+	keyvals []any
+	raw     bool // emit msg as a plain, non-JSON line
 }
 
-func main() {
-	charm.SetFormatter(charm.JSONFormatter)
-	charm.SetOutput(os.Stdout)
-	charm.SetTimeFormat(time.RFC3339)
-	charm.SetReportTimestamp(true)
-	for range 10 {
-		randomLog()
+func line(gap time.Duration, level charm.Level, msg string, keyvals ...any) step {
+	return step{gap: gap, level: level, msg: msg, keyvals: keyvals}
+}
+
+func raw(gap time.Duration, msg string) step {
+	return step{gap: gap, msg: msg, raw: true}
+}
+
+func jitter(base time.Duration) time.Duration {
+	return base/2 + rand.N(base)
+}
+
+func story() []step {
+	worker := rand.IntN(8) + 1
+	user := rand.IntN(9000) + 1000
+	paths := []string{"/api/users", "/api/orders", "/api/cart", "/healthz"}
+	path := func() string { return paths[rand.IntN(len(paths))] }
+
+	return []step{
+		// Boot, a couple of hours ago.
+		line(0, charm.InfoLevel, "starting server", "version", "v1.4.2", "addr", ":8080", "tags", []string{}),
+		line(jitter(2*time.Millisecond), charm.DebugLevel, "loaded config", "path", "/etc/app.yaml", "overrides", map[string]any{}),
+		line(jitter(40*time.Millisecond), charm.InfoLevel, "connected to database", "host", "db-1", "pool", 10),
+		line(jitter(300*time.Microsecond), charm.InfoLevel, "ready"),
+
+		// Traffic, a few minutes ago.
+		line(2*time.Hour+jitter(10*time.Minute), charm.InfoLevel, "request", "method", "GET", "path", path(), "status", 200, "dur", "12ms"),
+		line(jitter(80*time.Millisecond), charm.InfoLevel, "request", "method", "POST", "path", "/api/orders", "status", 201, "dur", "48ms"),
+		line(jitter(2*time.Second), charm.WarnLevel, "slow query", "table", "orders", "dur", "1.8s", "trace", ""),
+		line(jitter(15*time.Millisecond), charm.ErrorLevel, "payment failed", "err", "card declined", "user", user, "retry", nil),
+		line(jitter(5*time.Second), charm.DebugLevel, "cache miss", "key", fmt.Sprintf("user:%d", user)),
+
+		// Something just went wrong.
+		line(8*time.Minute+jitter(4*time.Minute), charm.InfoLevel, "request", "method", "GET", "path", path(), "status", 200, "dur", "9ms"),
+		raw(jitter(20*time.Microsecond), "panic: index out of range [3]"),
+		line(jitter(50*time.Microsecond), charm.ErrorLevel, "worker crashed", "err", "index out of range", "worker", worker),
+		line(jitter(time.Second), charm.InfoLevel, "worker restarted", "worker", worker, "attempt", 1),
 	}
 }
 
-func randomLog() {
-	charm.Log(charmLevels[rand.Intn(len(charmLevels))], "Hello World!", "a", rand.Intn(100), "err", rand.Intn(100))
+func main() {
+	steps := story()
+
+	var total time.Duration
+	for _, s := range steps {
+		total += s.gap
+	}
+	// Anchor the story so the last line lands a few seconds ago.
+	t := time.Now().Add(-total - jitter(10*time.Second))
+
+	logger := charm.NewWithOptions(os.Stdout, charm.Options{
+		Formatter:       charm.JSONFormatter,
+		Level:           charm.DebugLevel,
+		ReportTimestamp: true,
+		TimeFormat:      time.RFC3339Nano,
+	})
+
+	for _, s := range steps {
+		t = t.Add(s.gap)
+		if s.raw {
+			fmt.Println(s.msg)
+			continue
+		}
+		at := t
+		logger.SetTimeFunction(func(time.Time) time.Time { return at })
+		logger.Log(s.level, s.msg, s.keyvals...)
+	}
 }
