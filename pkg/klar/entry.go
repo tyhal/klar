@@ -23,6 +23,8 @@ type logEntry struct {
 	Level   log.Level
 	Msg     any
 	Keyvals []any
+	// raw marks a line that failed to parse and is shown verbatim.
+	raw bool
 }
 
 type field struct {

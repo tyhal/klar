@@ -12,6 +12,7 @@ var levels = []log.Level{log.DebugLevel, log.InfoLevel, log.WarnLevel, log.Error
 // Command returns the root command for the klar CLI
 func Command() *cobra.Command {
 	var levelFlag, timeFlag string
+	var fullFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "klar",
@@ -28,13 +29,15 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return klar.New(cmd.OutOrStdout(), klar.Options{Level: level, Time: timeMode}).
+			return klar.New(cmd.OutOrStdout(), klar.Options{Level: level, Time: timeMode, Full: fullFlag}).
 				Decode(cmd.Context(), cmd.InOrStdin())
 		},
 	}
 
 	cmd.Flags().StringVarP(&levelFlag, "level", "l", log.DebugLevel.String(), "minimum log level to show (debug|info|warn|error|fatal)")
 	cmd.Flags().StringVarP(&timeFlag, "time", "t", string(klar.TimeRelative), "timestamp style (relative|absolute|none)")
+
+	cmd.Flags().BoolVarP(&fullFlag, "full", "f", false, "show every key/value instead of merging repeated ones (key,key=〃 for same as above, key,key=v for shared values)")
 
 	_ = cmd.RegisterFlagCompletionFunc("level", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 		out := make([]string, len(levels))

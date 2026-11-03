@@ -118,6 +118,56 @@ func TestLogger_Decode(t *testing.T) {
 				"           WARN  plain text err=\"jsontext: invalid character 'p' at start of value\"\n",
 		},
 		{
+			Name: "elides repeated leading keyvals",
+			Opts: Options{Time: TimeNone},
+			In: strings.Join([]string{
+				`{"level":"info","msg":"start","trace":"t1","n":1}`,
+				`{"level":"info","msg":"enter","trace":"t1","span":"s1","n":2}`,
+				`{"level":"info","msg":"work","trace":"t1","span":"s1","n":2}`,
+				`{"level":"info","msg":"leave","trace":"t1","status":200}`,
+				`{"level":"info","msg":"other","trace":"t2","status":200}`,
+				`plain`,
+				`plain`,
+				`{"level":"info","trace":"t2"}`,
+			}, "\n"),
+			Out: "" +
+				"INFO  start trace=t1 n=1\n" +
+				"INFO  enter span=s1 n=2 trace=〃\n" +
+				"INFO  work trace,span,n=〃\n" +
+				"INFO  leave status=200 trace=〃\n" +
+				"INFO  other trace=t2 status=200\n" +
+				"WARN  plain err=\"jsontext: invalid character 'p' at start of value\"\n" +
+				"WARN  plain err=\"jsontext: invalid character 'p' at start of value\"\n" +
+				"INFO  trace=t2\n",
+		},
+		{
+			Name: "merges keys sharing a value",
+			Opts: Options{Time: TimeNone},
+			In: `{"level":"info","msg":"a","trace":"t1","start":5,"x":"y","end":5}
+{"level":"info","msg":"b","trace":"t1","start":7,"end":7}`,
+			Out: "INFO  a trace=t1 x=y start,end=5\n" +
+				"INFO  b start,end=7 trace=〃\n",
+		},
+		{
+			Name: "keyframe resets elision",
+			In: strings.Join([]string{
+				`{"time":"2011-05-15T12:00:00Z","level":"info","msg":"a","trace":"t1"}`,
+				`{"time":"2011-05-15T12:00:01Z","level":"info","msg":"b","trace":"t1"}`,
+				`{"time":"2011-05-15T15:29:58Z","level":"info","msg":"c","trace":"t1"}`,
+			}, "\n"),
+			Out: "" +
+				" 3h30m ago INFO  a trace=t1\n" +
+				"       +1s INFO  b trace=〃\n" +
+				"    2s ago INFO  c trace=t1\n",
+		},
+		{
+			Name: "full",
+			Opts: Options{Time: TimeNone, Full: true},
+			In: `{"level":"info","msg":"a","trace":"t1"}
+{"level":"info","msg":"b","trace":"t1"}`,
+			Out: "INFO  a trace=t1\nINFO  b trace=t1\n",
+		},
+		{
 			Name: "level filter",
 			Opts: Options{Level: log.WarnLevel},
 			In: `{"time":"2011-05-15T15:29:00Z","level":"info","msg":"hidden"}

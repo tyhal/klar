@@ -35,6 +35,7 @@ func jitter(base time.Duration) time.Duration {
 func story() []step {
 	worker := rand.IntN(8) + 1
 	user := rand.IntN(9000) + 1000
+	req := fmt.Sprintf("%08x", rand.Uint32())
 	paths := []string{"/api/users", "/api/orders", "/api/cart", "/healthz"}
 	path := func() string { return paths[rand.IntN(len(paths))] }
 
@@ -47,9 +48,11 @@ func story() []step {
 
 		// Traffic, a few minutes ago.
 		line(2*time.Hour+jitter(10*time.Minute), charm.InfoLevel, "request", "method", "GET", "path", path(), "status", 200, "dur", "12ms"),
-		line(jitter(80*time.Millisecond), charm.InfoLevel, "request", "method", "POST", "path", "/api/orders", "status", 201, "dur", "48ms"),
-		line(jitter(2*time.Second), charm.WarnLevel, "slow query", "table", "orders", "dur", "1.8s", "trace", ""),
-		line(jitter(15*time.Millisecond), charm.ErrorLevel, "payment failed", "err", "card declined", "user", user, "retry", nil),
+		// One request's span: repeated leading context collapses to key,key=〃.
+		line(jitter(80*time.Millisecond), charm.InfoLevel, "request", "req", req, "method", "POST", "path", "/api/orders"),
+		line(jitter(2*time.Second), charm.WarnLevel, "slow query", "req", req, "method", "POST", "path", "/api/orders", "table", "orders", "dur", "1.8s", "trace", ""),
+		line(jitter(15*time.Millisecond), charm.ErrorLevel, "payment failed", "req", req, "method", "POST", "path", "/api/orders", "err", "card declined", "user", user, "retry", nil),
+		line(jitter(time.Millisecond), charm.InfoLevel, "response", "req", req, "status", 402, "dur", "2.1s"),
 		line(jitter(5*time.Second), charm.DebugLevel, "cache miss", "key", fmt.Sprintf("user:%d", user)),
 
 		// Something just went wrong.
