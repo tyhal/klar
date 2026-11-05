@@ -21,7 +21,7 @@ func Command() *cobra.Command {
   my-app | klar --level warn --time absolute`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			level, err := log.ParseLevel(levelFlag)
+			level, err := klar.ParseLevel(levelFlag)
 			if err != nil {
 				return err
 			}
@@ -29,8 +29,8 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return klar.New(cmd.OutOrStdout(), klar.Options{Level: level, Time: timeMode, Full: fullFlag}).
-				Decode(cmd.Context(), cmd.InOrStdin())
+			opts := klar.Options{Level: level, Time: timeMode, Full: fullFlag}
+			return klar.New(cmd.OutOrStdout(), opts).Decode(cmd.Context(), cmd.InOrStdin())
 		},
 	}
 

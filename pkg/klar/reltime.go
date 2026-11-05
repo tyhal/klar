@@ -1,30 +1,46 @@
 package klar
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// keyframeGap is the largest gap between consecutive entries that is still
-// shown as a delta; anything larger (or going backwards) starts a new keyframe.
-const keyframeGap = time.Minute
+// defaultKeyframeLines is how often a keyframe is forced: half a classic
+// 24-row terminal, leaving room for lines that wrap, so a screenful always
+// has one.
+const defaultKeyframeLines = 12
 
 // relClock tracks the previous entry time so each entry can be rendered either
 // as a keyframe ("3h12m ago") or as a delta from the previous entry ("+1.5ms").
+//
+// Keyframes depend on lines, not time: deltas only add up from an absolute
+// time, so one is forced every so many lines, and scrolling through any part
+// of the output leaves one on screen. Between them, every gap is a delta,
+// however long, or negative when interleaved sources go back in time.
 type relClock struct {
-	now  func() time.Time
-	prev time.Time
+	now   func() time.Time
+	prev  time.Time
+	every int // lines between keyframes
+	since int // lines printed since the last keyframe
 }
 
-// next returns the label for t and whether it is a keyframe.
+// next returns the label for t and whether it is a keyframe. A zero t (an
+// untimed line) gets an empty label but still occupies a line on screen.
 func (c *relClock) next(t time.Time) (string, bool) {
-	prev := c.prev
+	if t.IsZero() {
+		c.since++
+		return "", false
+	}
+	first := c.prev.IsZero()
+	d := t.Sub(c.prev)
 	c.prev = t
-	d := t.Sub(prev)
-	if prev.IsZero() || d < 0 || d >= keyframeGap {
+	if first || c.since >= c.every {
+		c.since = 1
 		return formatAgo(c.now().Sub(t)), true
 	}
+	c.since++
 	return formatDelta(d), false
 }
 
@@ -47,49 +63,67 @@ var agoUnits = []unit{
 func formatAgo(d time.Duration) string {
 	future := d < 0
 	if future {
-		d = -d
+		d = abs(d)
 	}
 	if d < time.Second {
 		return "now"
 	}
+	label := func(parts int) string {
+		if future {
+			return "in " + units(d, parts)
+		}
+		return units(d, parts) + " ago"
+	}
+	if s := label(2); len(s) <= relWidth {
+		return s
+	}
+	return label(1) // a century or more: "292y ago"
+}
+
+// units renders d (at least a second) in its most significant units, up to
+// parts of them, dropping a zero trailing unit: "5m3s", "1h", "2w1d".
+func units(d time.Duration, parts int) string {
 	var b strings.Builder
-	parts := 0
 	for _, u := range agoUnits {
 		n := d / u.d
-		if parts > 0 || n > 0 {
-			if n > 0 {
-				b.WriteString(strconv.FormatInt(int64(n), 10))
-				b.WriteString(u.name)
-			}
-			d -= n * u.d
-			if parts++; parts == 2 {
-				break
-			}
+		if b.Len() == 0 && n == 0 {
+			continue
+		}
+		if n > 0 {
+			b.WriteString(strconv.FormatInt(int64(n), 10))
+			b.WriteString(u.name)
+		}
+		d -= n * u.d
+		if parts--; parts == 0 {
+			break
 		}
 	}
-	if future {
-		return "in " + b.String()
-	}
-	return b.String() + " ago"
+	return b.String()
 }
 
 // formatDelta renders d with ~3 significant figures in the most fitting unit,
-// e.g. "+0", "+850ns", "+12.3µs", "+1.5ms", "+42.1s".
+// e.g. "+0", "+850ns", "+12.3µs", "+1.5ms", "+42.1s", and in two units from a
+// minute up, "+3m54s", "+2h25m". Going back in time gives "-10s".
 func formatDelta(d time.Duration) string {
-	if d == 0 {
-		return "+0"
+	sign := "+"
+	if d < 0 {
+		sign, d = "-", abs(d)
 	}
 	var v float64
 	var name string
 	switch {
+	case d == 0:
+		return "+0"
 	case d < time.Microsecond:
-		return "+" + strconv.FormatInt(int64(d), 10) + "ns"
+		return sign + strconv.FormatInt(int64(d), 10) + "ns"
 	case d < time.Millisecond:
 		v, name = float64(d)/float64(time.Microsecond), "µs"
 	case d < time.Second:
 		v, name = float64(d)/float64(time.Millisecond), "ms"
-	default:
+	case d < time.Minute:
 		v, name = d.Seconds(), "s"
+	default:
+		return sign + units(d, 2)
 	}
 	prec := 2
 	switch {
@@ -102,5 +136,14 @@ func formatDelta(d time.Duration) string {
 	if strings.Contains(s, ".") {
 		s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
 	}
-	return "+" + s + name
+	return sign + s + name
+}
+
+// abs is |d|. Subtracting far-apart times saturates at the minimum duration,
+// which has no positive counterpart, so it is clamped.
+func abs(d time.Duration) time.Duration {
+	if d == math.MinInt64 {
+		return math.MaxInt64
+	}
+	return max(d, -d)
 }
